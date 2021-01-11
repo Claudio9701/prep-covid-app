@@ -23,9 +23,10 @@ lima_distritos = read_gpd('inputs/lima_distritos.geojson')
 # Sidebar widgets
 st.sidebar.markdown('# Parámetros de las Zonas')
 
-# Filtra el distrito
+# Filtra el distrito WORK IN PROGRESS
 distrito = ['Todos'] + sorted(lima_distritos['distrito'].unique().tolist())
-distrito = st.sidebar.selectbox('Selecciona el distrito que deseas ver', distrito)
+distrito = ['Todos']
+distrito = st.sidebar.selectbox('Selecciona el distrito que deseas ver (en progreso)', distrito)
 
 n_candidates = st.sidebar.slider('Cantidad de zonas a seleccionar', 0, 50, 5)
 radius = st.sidebar.slider('Cobertura mínima de cada zona (en metros)', 0, 10000, 1000, 100)
