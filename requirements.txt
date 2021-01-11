@@ -2,3 +2,4 @@ streamlit
 geopandas
 h3
 plotly
+urbanpy
