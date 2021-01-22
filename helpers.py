@@ -1,15 +1,26 @@
 import geopandas as gpd
 from h3 import hex_range_distances
 import pandas as pd
+import numpy as np
 from functools import reduce
 from shapely.ops import unary_union
 from urbanpy.utils import geo_boundary_to_polygon
+from math import ceil
+
+r_dists = {0: 123499.97082906487,
+ 1: 864499.7933786848,
+ 2: 2346499.4263399825,
+ 3: 4569498.845439567,
+ 4: 7533498.014266526,
+ 5: 11238496.884271327,
+ 6: 15684495.394773053,
+ 7: 20871493.472944934}
 
 ind_labels = {'Densidad Poblacional': 'population_2020',
               'Densidad Poblacional (<5 años)': 'population_children',
               'Densidad Poblacional (15-24 años)': 'population_youth', 
               'Densidad Poblacional (>60 años)': 'population_elderly',
-              'Accesso a Comercios aledaños': 'Ai',
+              'Acceso a Comercios aledaños': 'Ai',
               'Disponibilidad de Comercios aledaños': 'ds',
               'Lugares de Venta Minorista': 'Retail', 
               'Lugares de Servicios': 'Services',
@@ -27,9 +38,9 @@ ind_labels = {'Densidad Poblacional': 'population_2020',
               'Vulnerabilidad Laboral': 'vulnerabilidad_laboral',
               'Vulnerabilidad Hídrica': 'vulnerabilidad_hidrica',
               'Distancia al Lugar de Venta de Alimento más cercano': 'distance_to_food_facility',
-              'Duranción del viaje al Lugar de Venta de Alimento más cercano': 'distance_to_food_facility',
+              'Duración del viaje al Lugar de Venta de Alimento más cercano': 'distance_to_food_facility',
               'Distancia al Centro de Salud más cercano': 'distance_to_health_facility',
-              'Duranción del viaje al Centro de Salud más cercano': 'duration_to_health_facility',}
+              'Duración del viaje al Centro de Salud más cercano': 'duration_to_health_facility',}
 
 plotly_chart_labels = {v: k for k, v in ind_labels.items()}
 
@@ -54,7 +65,9 @@ def get_zones(hexs, hex_col='hex', range_distance=2):
     '''
     hexclusters = hexs.apply(lambda row: get_hex_neighbours(row[hex_col], range_distance),
                             axis=1, result_type='expand')
+    
     hexclusters = hexclusters.reset_index()
+    print('HEXclusters shape:', hexclusters.shape)
     hexclusters.columns = ['zone_id', 'h3cluster', 'geometry']
     zones = gpd.GeoDataFrame(hexclusters, crs='epsg:4326')
     
@@ -96,18 +109,25 @@ def sample_random_candidates(candidates, group_col, n):
     
     return candidate_rsample
 
-def calc_candidates(hexs_orig, n_candidates, radius, threshold, primary_ind, secondary_ind, green_areas):
+def calc_range_distances(container):
+    for r in np.arange(3,-1,-1):
+        if (r_dists[r] / container.area) < 0.2:
+            return r
+
+def calc_candidates(hexs_orig, n_candidates, radius, threshold, primary_ind, secondary_ind, green_areas, range_dist):
     candidates = []
     hexs = hexs_orig.copy() # Freely mutate cached object
     hexs = hexs.to_crs(epsg=32718)
     hexs['buffer'] = hexs.geometry.buffer(radius) # meters
-    target_hex = hexs.sort_values([primary_ind['col_name'], secondary_ind['col_name']], ascending=[primary_ind['ascending'], secondary_ind['ascending']])
+    target_hex = hexs.sort_values([primary_ind['col_name'], secondary_ind['col_name']], 
+                                   ascending=[primary_ind['ascending'], secondary_ind['ascending']])
+    print('target_hexs shape:', target_hex.shape)
 
     def eval_threshold(primary_ind=primary_ind, threshold=threshold):
         if primary_ind['ascending']:
-            return target_hex.iloc[0][primary_ind['col_name']] < threshold
+            return target_hex.iloc[0][primary_ind['col_name']] <= threshold
         else:
-            return target_hex.iloc[0][primary_ind['col_name']] > threshold
+            return target_hex.iloc[0][primary_ind['col_name']] >= threshold
          
     while (len(candidates) < n_candidates) and eval_threshold():
         #1. Sort available candidates
@@ -126,9 +146,13 @@ def calc_candidates(hexs_orig, n_candidates, radius, threshold, primary_ind, sec
         #5. Filter the candidate set (exclude hex closest neighbours)
         target_hex = target_hex[~target_hex.geometry.intersects(filter_buffer)]
 
-    candidates_df = hexs[hexs['hex'].isin(candidates)]
+    print('Candidates length:', len(candidates))
 
-    zones_df = get_zones(candidates_df)
+    candidates_df = hexs[hexs['hex'].isin(candidates)]
+    print('candidates_df shape:', candidates_df.shape)
+
+    zones_df = get_zones(candidates_df, range_distance=range_dist)
+    print('zones shape:', zones_df.shape)
 
     filtered_green_areas = filter_green_areas(green_areas, zones_df, hexs)
 
