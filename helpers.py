@@ -69,7 +69,7 @@ def get_zones(hexs, hex_col='hex', range_distance=2):
     hexclusters = hexclusters.reset_index()
     print('HEXclusters shape:', hexclusters.shape)
     hexclusters.columns = ['zone_id', 'h3cluster', 'geometry']
-    zones = gpd.GeoDataFrame(hexclusters, crs='epsg:4326')
+    zones = gpd.GeoDataFrame(hexclusters).set_crs('epsg:4326')
     
     return zones
 
