@@ -86,7 +86,7 @@ Send2Trash==1.8.0
 Shapely==1.7.1
 six==1.16.0
 smmap==4.0.0
-streamlit==1.0.0
+streamlit==1.41.1
 tenacity==8.0.1
 terminado==0.12.1
 testpath==0.5.0
